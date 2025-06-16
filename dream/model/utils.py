@@ -305,7 +305,9 @@ def initialize_tree(input_ids, model, past_key_values, logits_processor, embed_m
         token = torch.argmax(orig[:, -1])
         token = token[None, None]
     
-    draft_input_ids, draft_embeds = prune_image_tokens(input_ids=input_ids, embeds=input_embeds, scores=scores, image_token_id=32000)
+    # draft_input_ids, draft_embeds = prune_image_tokens(input_ids=input_ids, embeds=input_embeds, scores=scores, image_token_id=32000)
+
+    draft_input_ids, draft_embeds = input_ids, input_embeds
 
     draft_input_ids = torch.cat((draft_input_ids, token.to(input_ids.device)), dim=1)
     

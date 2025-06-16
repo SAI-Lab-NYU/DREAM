@@ -2,12 +2,14 @@ import argparse
 import deepspeed
 
 parser = argparse.ArgumentParser(description='sp')
-parser.add_argument('--basepath', type=str, default='/home/asperger/models/llava-v1.6-vicuna-7b-hf')
-parser.add_argument('--configpath', type=str, default="config.json")
+parser.add_argument('--basepath', type=str, default='/scratch/yh5961/models/llava-v1.6-vicuna-7b-hf')
+parser.add_argument('--configpath', type=str, default="/scratch/yh5961/EfficientMultimodalSpeculativeDecoding/DREAM/dream/train/vicuna_7B_config.json")
 parser.add_argument('--tmpdir', type=str,
-                    default='/home/lyh/code/nlp/ess/feature_data_dataset/sharegpt_0_67999_mu_V7B/')
+                    default='/vast/yh5961/llava_vicuna_7B_mid_mix665k/only_mid')
 parser.add_argument('--cpdir', type=str, default='0')
 parser.add_argument("--local_rank", type=int, default=-1, help="local_rank for distributed training on gpus")
+parser.add_argument("--resume_from_checkpoint", type=str, default=None, help="Path to resume checkpoint")
+
 parser = deepspeed.add_config_arguments(parser)
 args = parser.parse_args()
 import json
@@ -15,9 +17,8 @@ import wandb
 
 wandb.login()
 
-
 train_config = {
-    "lr": 5e-5,
+    "lr": 1e-5,
     "bs": 4,
     "gradient_accumulation_steps": 1,
     "datapath": f"{args.tmpdir}",
@@ -26,9 +27,9 @@ train_config = {
     "num_warmup_steps": 2000,
     "total_steps": 800000,
     "p_w": 1.0,
-    "v_w": 0.2,
+    "v_w": 0.4,
     "head_w": 0.1,
-    "num_workers": 2,
+    "num_workers": 4,
     "embeding": True,
     "act": "No",
     "data_noise": True,
@@ -53,7 +54,7 @@ from accelerate import Accelerator
 from accelerate.utils import set_seed
 
 set_seed(0)
-accelerator = Accelerator(mixed_precision="fp16")
+accelerator = Accelerator(mixed_precision="bf16")
 from cnets import Model
 from configs import EConfig
 from typing import Any, Dict, List
@@ -90,7 +91,7 @@ except:
     tensor = weights["lm_head.weight"].float()
     
 
-head = torch.nn.Linear(tensor.shape[1], tensor.shape[0], bias=False)
+head = torch.nn.Linear(tensor.shape[1], tensor.shape[0], bias=False).to(torch.bfloat16)
 head.weight.data = tensor
 
 
@@ -141,25 +142,34 @@ class CustomDataset(Dataset):
         data = torch.load(self.data[index])
         new_data = {}
         hidden_state = data['target'][:train_config["max_len"]]
-        hidden_state_second = hidden_state.clone()
         #input_ids = data['input_ids'][:train_config["max_len"]][None, :]
         inputs_embeds = data['inputs_embeds'][:train_config["max_len"]]
-        hidden_state_mid = data['hidden_state_mid'][:train_config["max_len"]]
+        hidden_state_mid = data['hidden_state_mid_a'][:train_config["max_len"]]
         loss_mask = data["loss_mask"][:train_config["max_len"]]
 
 
         length = hidden_state.shape[1]
+        # length_q = data['query_ids'].shape[1]
         attention_mask = [1] * length
         loss_mask = loss_mask[0].tolist()
+        # loss_mask[-1] = 0
+
+        #input_ids_target = input_ids[:, 1:]
+        #zeropadding = torch.tensor([[0]])
+        #input_ids_target = torch.cat((input_ids_target, zeropadding), dim=1)
+
         target = hidden_state
         
         hidden_state = hidden_state[:,:-1,:]
+        #loss_mask[-1] = 0
         new_data["attention_mask"] = attention_mask
         new_data["loss_mask"] = loss_mask
         new_data["target"] = target
         new_data["hidden_state_big"] = hidden_state
         new_data["hidden_state_mid"] = hidden_state_mid
+        #new_data["input_ids"] = input_ids_target
         new_data["inputs_embeds"] = inputs_embeds
+
 
         if self.transform:
             new_data = self.transform(new_data)
@@ -171,6 +181,7 @@ class DataCollatorWithPadding:
 
     def paddingtensor(self, intensors, N):
         B, n, S = intensors.shape
+        # padding_tensor = torch.zeros(B, N - n, S,dtype=intensors.dtype)
         padding_tensor = torch.zeros(B, N - n, S)
         outtensors = torch.cat((intensors, padding_tensor), dim=1)
         return outtensors
@@ -183,6 +194,7 @@ class DataCollatorWithPadding:
 
     def __call__(self, features: List[Dict[str, Any]]) -> Dict[str, Any]:
         max_length = max(item['hidden_state_mid'].shape[1] for item in features)
+        # batch_input_ids = torch.cat([self.paddingtensor2D(item['input_ids'], max_length) for item in features])
         batch_inputs_embeds = torch.cat([self.paddingtensor(item['inputs_embeds'], max_length) for item in features])
         batch_hidden_states = torch.cat([self.paddingtensor(item['hidden_state_big'], max_length-1) for item in features])
         batch_hidden_states_mid = torch.cat([self.paddingtensor(item['hidden_state_mid'], max_length) for item in features])
@@ -191,8 +203,10 @@ class DataCollatorWithPadding:
             [item['loss_mask'] + [0] * (max_length - len(item['loss_mask'])) for item in features])
         batch_attention_mask = torch.tensor(
             [item['attention_mask'] + [0] * (max_length - len(item['attention_mask'])) for item in features])
-    
+        # batch_loss_mask = torch.ones_like(batch_loss_mask)
+        # batch_attention_mask=torch.ones_like(batch_attention_mask)
         batch = {
+            #"input_ids": batch_input_ids,
             "inputs_embeds": batch_inputs_embeds,
             "hidden_states": batch_hidden_states,
             "hidden_states_mid": batch_hidden_states_mid,
@@ -281,6 +295,12 @@ head_engine, _, test_loader, _ = deepspeed.initialize(args=args,
                                                       collate_fn=DataCollatorWithPadding()
                                                       )
 
+if args.resume_from_checkpoint:
+    ckpt_path, _ = model_engine.load_checkpoint(args.resume_from_checkpoint)
+    if ckpt_path is None:
+        raise ValueError(f"Failed to load checkpoint from {args.resume_from_checkpoint}")
+    else:
+        print(f"Resumed training from {ckpt_path}")
 
 for param in head.parameters():
     param.requires_grad = False
@@ -296,13 +316,13 @@ for epoch in range(0, num_epochs):
 
         model.zero_grad()
 
-        inputs_embeds = Variable(data["inputs_embeds"].to(torch.float16), requires_grad=True)
-        last_hidden_state = Variable(data["hidden_states"].to(torch.float16), requires_grad=True)
+        inputs_embeds = Variable(data["inputs_embeds"].to(torch.bfloat16), requires_grad=True)
+        last_hidden_state = Variable(data["hidden_states"].to(torch.bfloat16), requires_grad=True)
         predict, all_hidden_states = model_engine(last_hidden_state.to(rank), inputs_embeds=inputs_embeds.to(rank),
                                attention_mask=data["attention_mask"].to(rank), output_hidden_states=True)
-        mid_predict = all_hidden_states[-2]
+        mid_predict = all_hidden_states[1]
         with torch.no_grad():
-            target_head = head_engine(data["target"].to(rank))
+            target_head = head_engine(data["target"].to(torch.bfloat16).to(rank))
             target_p = nn.Softmax(dim=2)(target_head)
             target_p = target_p.detach()
 
@@ -340,6 +360,53 @@ for epoch in range(0, num_epochs):
         epoch_loss += loss.item()
         num_batches += 1
 
+        model.zero_grad()
+        
+        last_hidden_state = Variable(data["hidden_states"].to(torch.bfloat16), requires_grad=True).to(rank)
+        last_hidden_state = torch.where(loss_mask[:,:-1,:] == 1, predict[:, :-1, :].detach(), last_hidden_state)
+        inputs_embeds = Variable(data["inputs_embeds"].to(torch.bfloat16), requires_grad=True)
+        predict, all_hidden_states = model_engine(last_hidden_state.to(rank), inputs_embeds=inputs_embeds.to(rank),
+                               attention_mask=data["attention_mask"].to(rank), output_hidden_states=True)
+        mid_predict = all_hidden_states[1]
+        with torch.no_grad():
+            target_head = head_engine(data["target"].to(torch.bfloat16).to(rank))
+            target_p = nn.Softmax(dim=2)(target_head)
+            target_p = target_p.detach()
+
+        loss_mask = data["loss_mask"][:, :, None].to(rank)
+        vloss, ploss, out_head = compute_loss(data["target"], target_p, predict, loss_mask)
+        #mid_vloss = compute_mid_loss(data["hidden_states_mid"], mid_predict, loss_mask)
+        loss = ploss
+        # loss.backward()
+        model_engine.backward(loss)
+        # accelerator.clip_grad_value_(model.parameters(), train_config["grad_clip"])
+
+        model_engine.step()
+
+        with torch.no_grad():
+            _, predicted = torch.max(out_head, 2)
+            _, target = torch.max(target_head, 2)
+            ct = loss_mask.sum().item()
+            cc = ((predicted == target) * loss_mask.squeeze()).sum().item()
+            out_head = out_head.view(-1, target_head.shape[-1])[loss_mask.view(-1) == 1]
+            target = target.view(-1)[loss_mask.view(-1) == 1]
+            topkacc = top_accuracy(out_head, target, (1, 2, 3))
+            for top_i in range(len(topkacc)):
+                top_3acc[top_i] += topkacc[top_i]
+            total += ct
+            correct += cc
+        if rank == 0 and ct != 0:
+            logdict = {"train/lr": optimizer.optimizer.param_groups[0]["lr"], "train/vloss": vloss.item(),
+                       "train/ploss": ploss.item(), "train/loss": loss.item(), "train/acc": cc / ct}
+            for id, i in enumerate(top_3acc):
+                logdict[f'train/adapter_top_{id + 1}_acc'] = topkacc[id].item() / ct
+            for id,i in enumerate(top_3acc):
+                 wandb.log({f'train/adapter_top_{id+1}_acc':topkacc[id].item()/ct})
+
+        del ploss, vloss
+        epoch_loss += loss.item()
+        num_batches += 1
+
     correct, total = torch.tensor(correct).cuda(), torch.tensor(total).cuda()
     correct, total = accelerator.gather_for_metrics((correct, total))
     correct, total = correct.sum().item(), total.sum().item()
@@ -352,5 +419,5 @@ for epoch in range(0, num_epochs):
             {"train/epochacc": correct / (total + 1e-5), "train/epochloss": epoch_loss})
 
     model_engine.save_16bit_model(f"{args.cpdir}/state_{epoch}")
-    if epoch % 10 == 0:
+    if epoch % 1 == 0:
         deepspeed.DeepSpeedEngine.save_checkpoint(model_engine, save_dir=f"{args.cpdir}/state_{epoch}")

@@ -12,13 +12,13 @@ setup(
     install_requires=[
         "torch",
         "transformers",
-        "accelerate == 0.21.0",
+        "accelerate",
         "fschat == 0.2.31",
         "gradio == 3.50.2",
         "openai == 0.28.0",
         "anthropic == 0.5.0",
-        "sentencepiece == 0.1.99",
-        "protobuf == 3.19.0",
+        "sentencepiece",
+        "protobuf",
         "wandb"
     ],
     classifiers=[
@@ -26,7 +26,6 @@ setup(
         'Intended Audience :: Developers',
         'License :: OSI Approved :: Apache Software License',
         'Programming Language :: Python :: 3',
-        'Programming Language :: Python :: 3.8',
-        'Programming Language :: Python :: 3.9',
+        'Programming Language :: Python :: 3.12',
     ],
 )

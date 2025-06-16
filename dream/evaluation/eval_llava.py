@@ -22,10 +22,6 @@ import argparse
 
 import importlib
 
-# try:
-#     from ..model.ea_model import EaModel
-# except:
-#     from eagle.model.ea_model import EaModel
 from fastchat.model import get_conversation_template
 from transformers import LlavaNextProcessor
 from PIL import Image
@@ -61,8 +57,7 @@ def find_next_non_image_token(input_ids, image_token_ids):
 parser = argparse.ArgumentParser()
 parser.add_argument(
     "--ea-model-path",
-    type=str,
-    default="/home/asperger/EfficientMultimodalSpeculativeDecoding/eagle/ge_data/7B",
+    type=str, required=True,
     help="The path to the weights. This can be a local folder or a Hugging Face repo ID.",
 )
 parser.add_argument("--base-model-path", type=str, default="/home/asperger/models/llava-v1.6-vicuna-7b-hf",
@@ -132,7 +127,7 @@ parser.add_argument(
 args = parser.parse_args()
 
 version_map = {
-    "default": "eagle.model.ea_model",
+    "default": "dream.model.ea_model",
 }
 
 module_name = version_map.get(args.version)
@@ -167,30 +162,18 @@ from datasets import load_dataset
 import time
 import json
 
-sample_num = 80
+sample_num = 1000
 
 if args.dataset == "MMT-Bench":
-    #ds = load_dataset(path="/home/apc/models/MMT-Bench", data_files="/home/apc/models/MMT-Bench/MMT-Bench_ALL.tsv", split="train[:100]")
-    ds = load_dataset(path="/home/asperger/datasets", data_files = "/home/asperger/datasets/MMT-Bench/MMT-Bench_ALL.tsv", split="train[4130:8000]")
+    ds = load_dataset(path="datasets", data_files = "datasets/processed_data/test.jsonl", split="train")
     ds = ds.shuffle(seed=42)
     ds = ds.select(range(sample_num))
-
-# inputs = tokenizer("A chat between a curious user and an artificial intelligence assistant. The assistant gives helpful, detailed, and polite answers to the user's questions. USER: Give me 100 prompt parameters that I can specify that will influence your output, e.g. voice, tone, register, style, audience etc. ASSISTANT:", return_tensors="pt").to(model.base_model.device)
+    
 elif args.dataset == "ScienceQA":
     ds = load_dataset(
         "parquet", 
-        data_files={'train': '/home/asperger/datasets/ScienceQA/data/train-00000-of-00001-1028f23e353fbe3e.parquet', 'validation': '/home/asperger/datasets/ScienceQA/data/validation-00000-of-00001-6c7328ff6c84284c.parquet'},
-        split="train"
-    )
-    ds = ds.filter(lambda record: record["image"] is not None)  
-    ds = ds.shuffle(seed=42)
-    ds = ds.select(range(sample_num))
-
-elif args.dataset == "Coco":
-    ds = load_dataset(
-        "parquet", 
-        data_files={'train': '/home/asperger/datasets/coco/data/train-00000-of-00040-67e35002d152155c.parquet'},
-        split="train"
+        data_files={'validation': 'datasets/ScienceQA/data/test-00000-of-00001-f0e719df791966ff.parquet'},
+        split="validation"
     )
     ds = ds.filter(lambda record: record["image"] is not None)  
     ds = ds.shuffle(seed=42)
@@ -199,8 +182,8 @@ elif args.dataset == "Coco":
 elif args.dataset == "ChartQA":
     ds = load_dataset(
         "parquet", 
-        data_files={'train': '/home/asperger/datasets/ChartQA/data/test-00000-of-00001.parquet'},
-        split="train"
+        data_files={'validation': 'datasets/ChartQA/data/test-00000-of-00001.parquet'},
+        split="validation"
     )
     ds = ds.filter(lambda record: record["image"] is not None)  
     ds = ds.shuffle(seed=42)
@@ -209,18 +192,8 @@ elif args.dataset == "ChartQA":
 elif args.dataset == "MathVista":
     ds = load_dataset(
         "parquet", 
-        data_files={'train': '/home/asperger/datasets/MathVista/data/testmini-00000-of-00001-725687bf7a18d64b.parquet'},
-        split="train"
-    )
-    #ds = ds.filter(lambda record: record["image"] is not None)  
-    ds = ds.shuffle(seed=42)
-    ds = ds.select(range(sample_num))
-
-elif args.dataset == "DocVQA":
-    ds = load_dataset(
-        "parquet", 
-        data_files={'train': '/home/asperger/datasets/DocVQA/DocVQA/test-00000-of-00006.parquet'},
-        split="train"
+        data_files={'validation': 'datasets/MathVista/data/test-00001-of-00002-6a611c71596db30f.parquet'},
+        split="validation"
     )
     #ds = ds.filter(lambda record: record["image"] is not None)  
     ds = ds.shuffle(seed=42)
@@ -229,30 +202,24 @@ elif args.dataset == "DocVQA":
 elif args.dataset == "OCRBench":
     ds = load_dataset(
         "parquet", 
-        data_files={'train': '/home/asperger/datasets/OCRBench-v2/data/test-00000-of-00011.parquet'},
-        split="train"
+        # TEST SET: test-00000-of-00011.parquet
+        data_files={'validation': 'datasets/OCRBench-v2/data/test-00000-of-00011.parquet'},
+        split="validation"
     )
-    #ds = ds.filter(lambda record: record["image"] is not None)  
     ds = ds.shuffle(seed=42)
     ds = ds.select(range(sample_num))
 
 elif args.dataset == "seed":
-    #ds = load_dataset(path="/home/apc/models/MMT-Bench", data_files="/home/apc/models/MMT-Bench/MMT-Bench_ALL.tsv", split="train[:100]")
-    with open("/home/asperger/datasets/SEED-Bench_v2_level1_2_3.json", "r", encoding="utf-8") as f:
-        records = json.load(f)
-    print(records["questions"][0])
-    ds = records["questions"]
-
-elif args.dataset == "human_eval":
-    ds = load_dataset("openai_humaneval")
-elif args.dataset == "mt_bench":
-    ds = load_dataset(path="/home/asperger/datasets", data_files = "/home/asperger/EfficientMultimodalSpeculativeDecoding/eagle/data/qa/question.jsonl", split="train")
+    # TEST SET : datasets/processed_seed_data/test.jsonl (Split in ge_data/seed_train_test_split.py)
+    ds = load_dataset(path="datasets", data_files = "datasets/processed_seed_data/test.jsonl", split="train")
+    ds = ds.shuffle(seed=42)
+    ds = ds.select(range(sample_num))
 
 def load_bs64_image(base64_data):
-    base64_data = base64_data.replace("\n", "")  # 移除换行符
+    base64_data = base64_data.replace("\n", "") 
     missing_padding = len(base64_data) % 4
     if missing_padding:
-        base64_data += "=" * (4 - missing_padding)  # 补齐 Base64 的填充
+        base64_data += "=" * (4 - missing_padding) 
 
     image_data = base64.b64decode(base64_data)
     image = Image.open(BytesIO(image_data))
@@ -281,88 +248,52 @@ accept_avg = []
 temperature = args.temperature
 top_p = 0.6
 for i in range(sample_num):
+    if args.dataset == "MMT-Bench":
+        messages = ds[i]['conversation'][0]
+        imagebase64 = ds[i]["image"]
+        image = load_bs64_image(imagebase64)
+    elif args.dataset == "ScienceQA":
+        imagebase64 = ds[i]["image"]["bytes"]
+        image = load_image(imagebase64)
 
-    if args.dataset == "human_eval":
-        inputs = model.processor(text=ds["test"][i]["prompt"], truncation=True, return_tensors="pt").to(model.base_model.device)
-    
-    elif args.dataset == "mt_bench":
-        inputs = model.processor(text=ds[i]["turns"][0], truncation=True, return_tensors="pt").to(model.base_model.device)
+        messages = [
+            {"role": "user", "content": [
+                {"type": "image"},
+                {"type": "text", "text": ds["question"][i]}
+            ]}
+        ]
+    elif args.dataset == "seed":
+        messages = ds[i]['conversation'][0]
+        imagebase64 = ds[i]["image"]
+        image = load_bs64_image(imagebase64)
+    elif args.dataset == "ChartQA":
+        messages = [
+            {"role": "user", "content": [
+                {"type": "image"},
+                {"type": "text", "text": ds["question"][i]}
+            ]}
+        ]
+        image = ds["image"][i]
+    elif args.dataset == "MathVista":
+        messages = [
+            {"role": "user", "content": [
+                {"type": "image"},
+                {"type": "text", "text": ds[i]["question"]}
+            ]}
+        ]
+        image = load_image_path("/data/MathVista",ds[i]["image"])
 
-    else:
-        if args.dataset == "MMT-Bench":
-            messages = [
-                {"role": "user", "content": [
-                    {"type": "image"},
-                    {"type": "text", "text": ds["question"][i]}
-                ]}
-            ]
-            imagebase64 = ds["image"][i]
-            image = load_bs64_image(imagebase64)
-        elif args.dataset == "ScienceQA":
-            imagebase64 = ds[i]["image"]["bytes"]
-            image = load_image(imagebase64)
+    elif args.dataset == "OCRBench":
+        messages = [
+            {"role": "user", "content": [
+                {"type": "image"},
+                {"type": "text", "text": ds["question"][i]}
+            ]}
+        ]
+        image = ds["image"][i]
 
-            messages = [
-                {"role": "user", "content": [
-                    {"type": "image"},
-                    {"type": "text", "text": ds["question"][i]}
-                ]}
-            ]
-        elif args.dataset == "seed":
-            messages = [
-                {"role": "user", "content": [
-                    {"type": "image"},
-                    {"type": "text", "text": ds[i]["question"]}
-                ]}
-            ]
-            image = load_image_path("/vast/yh5961/SEED-Bench-2/cc3m-image",ds[i]["data_id"])
-        elif args.dataset == "ChartQA":
-            messages = [
-                {"role": "user", "content": [
-                    {"type": "image"},
-                    {"type": "text", "text": ds["question"][i]}
-                ]}
-            ]
-            image = ds["image"][i]
-        elif args.dataset == "MathVista":
-            messages = [
-                {"role": "user", "content": [
-                    {"type": "image"},
-                    {"type": "text", "text": ds[i]["question"]}
-                ]}
-            ]
-            image = load_image_path("/scratch/yh5961/data/MathVista",ds[i]["image"])
-        elif args.dataset == "DocVQA":
-            messages = [
-                {"role": "user", "content": [
-                    {"type": "image"},
-                    {"type": "text", "text": ds["question"][i]}
-                ]}
-            ]
-            image = ds["image"][i]
-        elif args.dataset == "OCRBench":
-            messages = [
-                {"role": "user", "content": [
-                    {"type": "image"},
-                    {"type": "text", "text": ds["question"][i]}
-                ]}
-            ]
-            image = ds["image"][i]
-        elif args.dataset == "Coco":
-            messages = [
-                            {
-                              "role": "system",
-                              "content": [{"type": "text", "text": "A chat between a curious user and an artificial intelligence assistant. The assistant gives helpful, detailed, and polite answers to the user's questions."}]
-                            },
-                            {"role": "user", "content": [
-                                {"type": "image"},
-                                {"type": "text", "text": "Provide a detailed description of the given image."}
-                            ]}
-                        ]
-            image = load_image(ds["image"][i]["bytes"])
-
-        prompt = model.processor.apply_chat_template(messages, add_generation_prompt=True)
-        inputs = model.processor(images=image, text=prompt, truncation=True, return_tensors="pt").to(model.base_model.device)
+    prompt = model.processor.apply_chat_template(messages, add_generation_prompt=True)
+    inputs = model.processor(images=image, text=prompt, truncation=True, return_tensors="pt").to(model.base_model.device)
 
     input_ids = inputs.input_ids
     input_ids = torch.as_tensor(input_ids).cuda()
@@ -393,8 +324,8 @@ for i in range(sample_num):
     total_ids=0
     cu_len=input_len
     ea_text=[]
-    for output_ids in model.ea_generate(inputs, temperature=temperature, top_p=top_p,
-                                        max_new_tokens=args.max_new_token,is_llama3=args.model_type=="llama-3-instruct"):
+    for output_ids, _, _ in model.ea_generate(inputs, temperature=temperature, top_p=top_p,
+                                        max_new_tokens=args.max_new_token,is_llama3=args.model_type=="llama-3-instruct", ):
         totaltime+=(time.time()-start_time)
         total_ids+=1
         decode_ids = output_ids[0, input_len:].tolist()

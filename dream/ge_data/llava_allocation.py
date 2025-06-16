@@ -1,7 +1,7 @@
 import argparse
 
 parser = argparse.ArgumentParser(description='sp')
-parser.add_argument('--outdir', type=str, default='/home/apc/EAGLE/eagle/ge_data/llava_vicuna_7B')
+parser.add_argument('--outdir', type=str, default='ge_data/llava_vicuna_7B')
 args = parser.parse_args()
 
 import os
@@ -13,7 +13,7 @@ e = 800 - 1
 gpus = [[0]]
 
 num_p = len(gpus)
-outdir = '{}/mmt_bench_{}_{}_mufp16'.format(args.outdir, 0, e)
+outdir = '{}/llava_{}_{}_mubf16'.format(args.outdir, 0, e)
 
 def split_range(start, end, n, over=False):
     length = end - start + 1  # Include the end
@@ -47,7 +47,7 @@ for i in range(num_p):
     end = data_a[i][1]
     gpu_index = gpus[i]
     gpu_index_str = ' '.join(map(str, gpu_index))
-    command = "python ge_data/ge_data_all_llava_vicuna.py --start={} --end={} --index={} --gpu_index {} --outdir {}".format(start, end, index, gpu_index_str, outdir)
+    command = "python ge_data/ge_data_all_llava_mix665k.py --start={} --end={} --index={} --gpu_index {} --outdir {}".format(start, end, index, gpu_index_str, outdir)
     commands.append(command)
 
 with ThreadPoolExecutor(max_workers=len(commands)) as executor:

@@ -12,8 +12,6 @@ from transformers import PreTrainedModel, PretrainedConfig,AutoConfig
 
 
 from .modeling_llama_kv import LlamaForCausalLM as KVLlamaForCausalLM
-from .modeling_mixtral_kv import MixtralForCausalLM as KVMixtralForCausalLM
-from .modeling_qwen2_kv import LlamaForCausalLM as KVQwen2ForCausalLM
 from transformers import LlavaNextProcessor, LlavaNextForConditionalGeneration, AutoProcessor
 from .modeling_llava_next import LlavaNextForConditionalGeneration
 #from .modeling_llava import LlavaForConditionalGeneration
@@ -124,38 +122,25 @@ class EaModel(nn.Module):
     ):
         #assert Type=="LLaMA" or "Mixtral"
         Type=AutoConfig.from_pretrained(base_model_path).architectures[0]
-        if Type=='LlamaForCausalLM':
-            base_model = KVLlamaForCausalLM.from_pretrained(
+        
+        base_model = LlavaNextForConditionalGeneration.from_pretrained(
                 base_model_path, **kwargs
             )
-        elif Type=='Qwen2ForCausalLM':
-            base_model=KVQwen2ForCausalLM.from_pretrained(
-                base_model_path, **kwargs
-            )
-        elif Type=='MixtralForCausalLM':
-            base_model = KVMixtralForCausalLM.from_pretrained(
-                base_model_path, **kwargs
-            )
-        elif Type=='LlavaNextForConditionalGeneration':
-            base_model = LlavaNextForConditionalGeneration.from_pretrained(
-                base_model_path, **kwargs
-            )
-        #elif Type=='LlavaForConditionalGeneration':
-        #    base_model = LlavaForConditionalGeneration.from_pretrained(
-        #        base_model_path, **kwargs
-        #    )
-
+    
         configpath=os.path.join(ea_model_path,"config.json")
         if not os.path.exists(configpath):
             configpath = hf_hub_download(ea_model_path, "config.json")
 
         try:
             load_model_path=os.path.join(ea_model_path, "pytorch_model.bin")
+            print(load_model_path)
             if not os.path.exists(load_model_path):
+                print("download from hub")
                 load_model_path=hf_hub_download(ea_model_path, "pytorch_model.bin")
-            ea_layer_state_dict = torch.load(load_model_path,
-                                             map_location=base_model.device)
-        except:
+            ea_layer_state_dict = torch.load(load_model_path, map_location=base_model.device, weights_only=False)
+
+        except Exception as e:
+            print(e)
             from safetensors.torch import load_file
             load_model_path = os.path.join(ea_model_path, "model.safetensors")
             if not os.path.exists(load_model_path):

@@ -1097,7 +1097,7 @@ class LlamaModel(LlamaPreTrainedModel):
             past_key_values=next_cache,
             hidden_states=all_hidden_states,
             attentions=all_self_attns,
-            attn_scores=attan_scores,
+            # attn_scores=attan_scores,nvitop
         )
 
 
@@ -1241,7 +1241,7 @@ class LlamaForCausalLM(LlamaPreTrainedModel):
             past_key_values=outputs.past_key_values,
             hidden_states=outputs.hidden_states,
             attentions=outputs.attentions,
-            attn_scores=outputs.attn_scores
+            # attn_scores=outputs.attn_scores
         )
 
     def prepare_inputs_for_generation(
