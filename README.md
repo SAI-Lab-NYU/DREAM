@@ -22,6 +22,9 @@
 ```bash
 cd DREAM
 pip install -r requirements.txt
+
+# Download weight demo based on llava-v1.6-7B-Instruct
+git clone https://huggingface.co/Alexhu1999/DREAM-LLava-v1.6-7B-Instruct
 ```
 
 ## Inference
