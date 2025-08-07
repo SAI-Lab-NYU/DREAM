@@ -180,7 +180,7 @@ elif args.dataset == "ScienceQA":
     ds = load_dataset(
         "parquet", 
         data_files={'train': '/home/asperger/datasets/ScienceQA/data/train-00000-of-00001-1028f23e353fbe3e.parquet', 'validation': '/home/asperger/datasets/ScienceQA/data/validation-00000-of-00001-6c7328ff6c84284c.parquet'},
-        split="train"
+        split="validation"
     )
     ds = ds.filter(lambda record: record["image"] is not None)  
     ds = ds.shuffle(seed=42)
