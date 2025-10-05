@@ -8,7 +8,7 @@ import os
 from concurrent.futures import ThreadPoolExecutor
 
 s = 0
-e = 800 - 1
+e = 1000 - 1
 
 gpus = [[0]]
 
@@ -47,7 +47,7 @@ for i in range(num_p):
     end = data_a[i][1]
     gpu_index = gpus[i]
     gpu_index_str = ' '.join(map(str, gpu_index))
-    command = "python ge_data/ge_data_all_llava_mix665k.py --start={} --end={} --index={} --gpu_index {} --outdir {}".format(start, end, index, gpu_index_str, outdir)
+    command = "python ge_data/ge_data_suppliments.py --start={} --end={} --index={} --gpu_index {} --outdir {}".format(start, end, index, gpu_index_str, outdir)
     commands.append(command)
 
 with ThreadPoolExecutor(max_workers=len(commands)) as executor:

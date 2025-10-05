@@ -90,9 +90,9 @@ Once the model is loaded, a URL will be displayed in the terminal.
 
 ### 2. Training the Auto-regression Head
 
-First, generate the necessary training data:
+First, generate the necessary training data (see ./ge_data for detailed instructions and generation scripts):
 ```bash
-python -m dream.ge_data.ge_data_all_llava_mix665k --outdir [PATH_TO_OUTPUT_DATA]
+python -m dream.ge_data.allocation_mix665
 ```
 
 Then, use the following DeepSpeed command to start training:
