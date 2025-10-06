@@ -47,8 +47,8 @@ The core of DREAM is its innovative approach: **D**rafting with **R**efined Targ
     <td align="center"><b>DREAM</b></td>
   </tr>
   <tr>
-    <td><img src="figs/vanila_demp.gif" alt="Vanilla Demo"></td>
-    <td><img src="figs/dream_demo.gif" alt="DREAM Demo"></td>
+    <td><img src="figs/original.gif" alt="Vanilla Demo"></td>
+    <td><img src="figs/dream.gif" alt="DREAM Demo"></td>
   </tr>
 </table>
 
