@@ -22,6 +22,14 @@
   </p>
 </div>
 
+<div align="center">
+  <a href="https://arxiv.org/abs/2505.19201">
+    <img src="https://img.shields.io/badge/arXiv-2505.19201-b31b1b.svg?style=for-the-badge&logo=arxiv&logoColor=white" alt="arXiv">
+  </a>
+  <br>
+  <b>✨ <a href="https://arxiv.org/abs/2505.19201" style="color:#b31b1b;">Read our NeurIPS 2025 paper on arXiv!</a> ✨</b>
+</div>
+
 ---
 
 ## 🚀 Overview
