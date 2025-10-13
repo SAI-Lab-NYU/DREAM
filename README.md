@@ -16,18 +16,8 @@
   <img alt="Python" src="https://img.shields.io/badge/python-3.12%2B-blue.svg">
 </p>
 
-<div align="center" style="display: flex; gap: 5px; justify-content: center;">
-  <p>
-  <b>🔥  Our work is accepted by NeurIPS 2025. Welcome to star and cite our work! ✨</b> 
-  </p>
-</div>
-
 <div align="center">
-  <a href="https://arxiv.org/abs/2505.19201">
-    <img src="https://img.shields.io/badge/arXiv-2505.19201-b31b1b.svg?style=for-the-badge&logo=arxiv&logoColor=white" alt="arXiv">
-  </a>
-  <br>
-  <b>✨ <a href="https://arxiv.org/abs/2505.19201" style="color:#b31b1b;">Read our NeurIPS 2025 paper on arXiv!</a> ✨</b>
+  <b>🔥 Our work has been accepted to NeurIPS 2025! The paper is now available on <a href="https://arxiv.org/abs/2505.19201" style="color:#b31b1b;">arXiv</a>. ✨</b>
 </div>
 
 ---
